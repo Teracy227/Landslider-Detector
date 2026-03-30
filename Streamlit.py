@@ -5,11 +5,11 @@ import time
 # --- CONFIGURATION ---
 MQTT_BROKER = "broker.hivemq.com"
 MQTT_PORT = 1883
-MQTT_TOPIC = "elins/landslide/monitor123" # <--- MUST MATCH ESP32 EXACTLY
+MQTT_TOPIC = "elins/landslide/rafigila123" # <--- MUST MATCH ESP32 EXACTLY
 
 # Set up the page layout
 st.set_page_config(page_title="Landslide Monitor", page_icon="⛰️", layout="wide")
-st.title("⛰️ Wireless Landslide Early Warning System")
+st.title("⛰️ Land Moisture and Aspect Overseer - for Potential Landslide Surfaces")
 
 # --- MQTT SETUP & BACKGROUND THREAD ---
 # We use @st.cache_resource so Streamlit doesn't disconnect/reconnect every millisecond
