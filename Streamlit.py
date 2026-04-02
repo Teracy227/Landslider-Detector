@@ -9,7 +9,7 @@ MQTT_TOPIC = "elins/landslide/rafigila123" # <--- MUST MATCH ESP32 EXACTLY
 
 # Set up the page layout
 st.set_page_config(page_title="Landslide Monitor", page_icon="⛰️", layout="wide")
-st.title("⛰️ Land Moisture and Aspect Overseer - for Potential Landslide Surfaces")
+st.title("⛰️ Land Moisture and Aspect Overseer - for Potential Landslide Surfaces (LMAO - PLS)")
 
 # --- MQTT SETUP & BACKGROUND THREAD ---
 # We use @st.cache_resource so Streamlit doesn't disconnect/reconnect every millisecond
@@ -24,12 +24,18 @@ def init_mqtt():
     }
 
     def on_connect(client, userdata, flags, rc):
-        client.subscribe(MQTT_TOPIC)
+        if rc == 0:
+            print("✅ Connected to MQTT Broker successfully!")
+            client.subscribe(MQTT_TOPIC)
+            print(f"📡 Listening to topic: {MQTT_TOPIC}")
+        else:
+            print(f"❌ Failed to connect, return code {rc}")
 
     def on_message(client, userdata, msg):
         try:
             # Decode the comma-separated string from the ESP32
             payload = msg.payload.decode("utf-8")
+            print(f"Data masuk dari ESP32: {payload}")
             vals = payload.split(",")
             
             if len(vals) >= 7:
@@ -41,10 +47,11 @@ def init_mqtt():
                 data["accZ"] = float(vals[5])
                 data["soil"] = float(vals[6])
         except Exception as e:
-            pass
+            print(f"Error parsing data: {e}")
 
     # Initialize the MQTT Client
-    client = mqtt.Client()
+    # Kode Baru (Mendukung Paho MQTT v2.0+)
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1)
     client.on_connect = on_connect
     client.on_message = on_message
     client.connect(MQTT_BROKER, MQTT_PORT, 60)
