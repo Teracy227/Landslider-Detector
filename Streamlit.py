@@ -8,19 +8,18 @@ MQTT_PORT = 1883
 MQTT_TOPIC = "elins/landslide/rafigila123" # <--- MUST MATCH ESP32 EXACTLY
 
 # Set up the page layout
-st.set_page_config(page_title="Landslide Monitor", page_icon="⛰️", layout="wide")
-st.title("⛰️ Land Moisture and Aspect Overseer - for Potential Landslide Surfaces (LMAO - PLS)")
+st.set_page_config(page_title="Landslide & Temp Monitor", page_icon="⛰️", layout="wide")
+st.title("⛰️ Land Moisture, Aspect & Temperature Overseer (LMAO - PLS)")
 
 # --- MQTT SETUP & BACKGROUND THREAD ---
-# We use @st.cache_resource so Streamlit doesn't disconnect/reconnect every millisecond
 @st.cache_resource
 def init_mqtt():
-    # This dictionary holds the live data. The background thread updates it, 
-    # and the Streamlit UI reads from it.
+    # Ditambahkan "suhu" dan "suhuBlynk" ke dalam dictionary
     data = {
         "pitch": 0.0, "roll": 0.0, "yaw": 0.0,
         "accX": 0.0, "accY": 0.0, "accZ": 0.0,
-        "soil": 0.0
+        "soil": 0.0,
+        "suhu": 0.0, "suhuBlynk": 0.0
     }
 
     def on_connect(client, userdata, flags, rc):
@@ -33,12 +32,12 @@ def init_mqtt():
 
     def on_message(client, userdata, msg):
         try:
-            # Decode the comma-separated string from the ESP32
             payload = msg.payload.decode("utf-8")
             print(f"Data masuk dari ESP32: {payload}")
             vals = payload.split(",")
             
-            if len(vals) >= 7:
+            # Diubah menjadi >= 9 untuk menampung dua nilai suhu baru
+            if len(vals) >= 9:
                 data["pitch"] = float(vals[0])
                 data["roll"] = float(vals[1])
                 data["yaw"] = float(vals[2])
@@ -46,25 +45,22 @@ def init_mqtt():
                 data["accY"] = float(vals[4])
                 data["accZ"] = float(vals[5])
                 data["soil"] = float(vals[6])
+                data["suhu"] = float(vals[7])       # <--- Nilai Suhu Asli (DHT)
+                data["suhuBlynk"] = float(vals[8])  # <--- Nilai Suhu Kalibrasi
         except Exception as e:
             print(f"Error parsing data: {e}")
 
-    # Initialize the MQTT Client
-    # Kode Baru (Mendukung Paho MQTT v2.0+)
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1)
     client.on_connect = on_connect
     client.on_message = on_message
     client.connect(MQTT_BROKER, MQTT_PORT, 60)
     
-    # loop_start() runs the network code in the background automatically!
     client.loop_start() 
     return data
 
-# Grab the live data dictionary
 sensor_data = init_mqtt()
 
 # --- LIVE UI LOOP ---
-# Create an empty container that we will overwrite rapidly
 placeholder = st.empty()
 
 while True:
@@ -81,8 +77,8 @@ while True:
 
         st.markdown("---")
 
-        # 2. DATA HUD (Split into 3 neat columns)
-        col1, col2, col3 = st.columns(3)
+        # 2. DATA HUD (Diubah menjadi 4 kolom agar suhu memiliki tempat sendiri)
+        col1, col2, col3, col4 = st.columns(4)
 
         with col1:
             st.subheader("📐 Ground Tilt")
@@ -98,10 +94,13 @@ while True:
         with col3:
             st.subheader("💧 Soil Saturation")
             st.metric("Moisture", f"{int(sensor_data['soil'])}%")
-            
-            # Streamlit progress bars require a float strictly between 0.0 and 1.0
             soil_normalized = min(max(sensor_data["soil"] / 100.0, 0.0), 1.0)
             st.progress(soil_normalized)
+
+        # Kolom Baru Khusus Nilai Suhu & Suhu Blynk
+        with col4:
+            st.subheader("🌡️ Temperature")
+            st.metric("Suhu DHT (Asli)", f"{sensor_data['suhu']:.2f} °C")
+            st.metric("Suhu Blynk (Kalibrasi)", f"{sensor_data['suhuBlynk']:.2f} °C")
             
-    # Pause for 100ms so we don't melt your laptop's CPU, then loop and redraw!
     time.sleep(0.1)
